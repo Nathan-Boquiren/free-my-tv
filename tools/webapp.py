@@ -110,6 +110,11 @@ def files(config, made_by):
     for name in ('InterVariable.ttf', 'OFL.txt'):
         with open(os.path.join(ROOT, 'app', 'assets', 'fonts', name), 'rb') as f:
             out['fonts/' + name] = f.read()
+    # Fonts only the web app draws with (the clock's Lora, with its licence): not packed into the Android app.
+    fonts = os.path.join(web, 'fonts')
+    for name in sorted(os.listdir(fonts)):
+        with open(os.path.join(fonts, name), 'rb') as f:
+            out['fonts/' + name] = f.read()
     return out
 
 

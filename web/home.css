@@ -10,6 +10,12 @@
   src: url('fonts/InterVariable.ttf') format('truetype');
   font-weight: 100 900;
 }
+/* The clock's serif (SIL OFL, fonts/OFL-Lora.txt): one variable file, weights 400 to 700. */
+@font-face {
+  font-family: 'Lora';
+  src: url('fonts/LoraVariable.ttf') format('truetype');
+  font-weight: 400 700;
+}
 
 html, body {
   margin: 0;
@@ -301,6 +307,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   position: absolute;
   left: 76px;
   top: 300px;
+  font-family: 'Lora', Georgia, 'Times New Roman', serif;
   font-size: 176px;
   font-weight: 200;
   letter-spacing: -0.01em;
@@ -321,6 +328,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   top: 814px;
   height: 206px;
   border-radius: 62px;
+  /* corner-shape: squircle; */
   background: -webkit-linear-gradient(top, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.4));
   background: linear-gradient(rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.4));
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12), inset 0 1.5px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55);
@@ -344,6 +352,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   top: 854px;
   height: 126px;
   border-radius: 22px;
+  /* corner-shape: squircle; */
   overflow: hidden;
   color: #FFF;
   box-shadow: 0 4px 22px rgba(0, 0, 0, 0.14);
@@ -382,8 +391,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   -webkit-transition: opacity 0.17s;
   transition: opacity 0.17s;
 }
-.tile.focus { -webkit-transform: scale(1.2); transform: scale(1.2); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34); z-index: 2; }
+/* 18px, not 22: the 1.2 scale would draw the resting corner as 26px, and the glass's corner (62) stays a step out. */
+.tile.focus { -webkit-transform: scale(1.2); transform: scale(1.2); border-radius: 18px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34); z-index: 2; }
 .tile.focus::after { opacity: 1; }
+/* At the ends of the row the tile's outer corners sit inside the glass's 62px corner, 30px away, so they follow the
+   concentric rule (62 = inner + 30): 32px on screen, which the 1.2 scale draws from 26.6. */
+.tile:first-child.focus { border-radius: 26.6px; }
+.tile:last-child.focus { border-radius: 26.6px; }
 .night .tile { box-shadow: 0 4px 22px rgba(0, 0, 0, 0.3); }
 .night .tile.focus { box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6); }
 .more { position: absolute; width: 17px; height: 17px; color: rgba(0, 0, 0, 0.6); }
@@ -564,8 +578,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35), inset 0 1.5px 0 rgba(255, 255, 255, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.18);
   white-space: nowrap;
 }
-#saver .clock .time { font-size: 150px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; -webkit-font-feature-settings: 'tnum'; font-feature-settings: 'tnum'; }
-#saver .clock .date { margin-top: 10px; font-size: 34px; font-weight: 500; color: rgba(255, 255, 255, 0.82); }
+#saver .clock .time { font-family: 'Lora', Georgia, 'Times New Roman', serif; font-size: 150px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; -webkit-font-feature-settings: 'tnum'; font-feature-settings: 'tnum'; }
+#saver .clock .date { font-family: 'Lora', Georgia, 'Times New Roman', serif; margin-top: 10px; font-size: 34px; font-weight: 500; color: rgba(255, 255, 255, 0.82); }
 #saver .clock .title { margin-top: 18px; font-size: 26px; font-weight: 500; color: rgba(255, 255, 255, 0.65); }
 #saver .clock .hint { margin-top: 8px; font-size: 22px; color: rgba(255, 255, 255, 0.55); }
 
@@ -593,8 +607,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 }
 #toast.on { opacity: 1; -webkit-transform: translate(-50%, 0); transform: translate(-50%, 0); }
 
-/* The Magic Remote's pointer: no text selection, no outlines. */
-* { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+/* The Magic Remote's pointer: no text selection, no outlines.
+   The outline is what Tizen TVs need: they give the clicked div DOM focus and the browser paints its own white ring
+   round it, over the app's own focus (the .focus class). An author rule beats the browser's default ring, whatever
+   its specificity. */
+* { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
 
 /* Tizen 2 and 1 GB TVs (see tv.js): no shadows or animations; their GPUs can't keep up while the focus moves. */
 .lite * { box-shadow: none !important; -webkit-transition: none !important; transition: none !important; }
