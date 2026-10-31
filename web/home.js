@@ -2,7 +2,7 @@
  * The home screen for web-app TVs (LG webOS, Samsung Tizen), with the Android app's design and behavior (HomeView):
  *  - top: the "For You" title and the tabs (Explore, Movies, Shows); icon-only glass buttons at the right (Live TV,
  *    HDMI Inputs, Settings) and the crypto quotes at the end of the tab row;
- *  - three picks for this hour in the selected tab; the background is the first one's photo, blurred and almost white;
+ *  - three picks for this hour in the selected tab; the background is the focused one's photo, blurred, almost white;
  *  - the glass shelf with the apps; ↓ opens the drawer (inputs, shortcuts, weather, prices); ↑ or Back closes it;
  *  - a night look from sunset to sunrise; a screensaver after a few idle minutes.
  * The remote's arrows, OK and Back move the focus; a pointer (LG's Magic Remote) focuses what it points at.
@@ -63,9 +63,14 @@
   var stage = $("stage"),
     body = document.body;
 
-  /** The 1920 × 1080 stage fills the window (on the TV it already is 1920 × 1080). */
+  /**
+   * The 1920 × 1080 stage fills the window (on the TV it already is 1920 × 1080). A TV's window only gets shorter for
+   * the keyboard (Samsung's resizes it while the city or key field has focus): there the stage keeps its width and the
+   * keyboard covers its bottom, as in other apps. Fitted to the short window, it shrank into the top left beside a white
+   * band (#399).
+   */
   function fit() {
-    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    var s = TV.name !== "browser" ? window.innerWidth / 1920 : Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
     stage.style.webkitTransform = stage.style.transform = s === 1 ? "" : "scale(" + s + ")";
   }
 
@@ -74,9 +79,18 @@
   /** Shelf apps in this order when installed, like the Android app: key, LG app id, name on the TV, brand gradient. */
   var SHELF = [
     ["netflix", /^netflix$/, /netflix/i, ["#0A0A0A", "#000000"]],
-    ["prime", /^amazon$/, /prime video|amazon/i, ["#2AA8FF", "#0A68D4"]],
-    ["jellyfin", /jellyfin/i, /jellyfin/i, ["#AA5CC3", "#00A4DC"]],
     ["youtube", /youtube/, /^youtube$/i, ["#1C1C1E", "#09090A"]],
+    ["prime", /^amazon$/, /prime video|amazon/i, ["#2AA8FF", "#0A68D4"]],
+    ["disney", /disney/, /disney/i, ["#173584", "#08143F"]],
+    ["max", /hbo|wbd/, /^(hbo )?max$|hbo max/i, ["#5C30E8", "#221684"]],
+    ["appletv", /appletv|apple\.tv/, /apple tv/i, ["#1C1C1E", "#000000"]],
+    ["hulu", /^hulu/, /hulu/i, ["#1CE783", "#0B8F4E"]],
+    ["paramount", /paramount|cbs/, /paramount/i, ["#0064FF", "#002A86"]],
+    ["peacock", /peacock/, /peacock/i, ["#1C1C1E", "#000000"]],
+    ["nfl", /nfl/, /^nfl/i, ["#013369", "#00163D"]],
+    ["globoplay", /globoplay/, /globoplay/i, ["#FF8A1F", "#FF2D5A"]],
+    ["jellyfin", /jellyfin/i, /jellyfin/i, ["#AA5CC3", "#00A4DC"]],
+    ["spotify", /spotify/, /spotify/i, ["#1DB954", "#0F7A36"]],
   ];
   // Apps shown at once, as on Android: 8 (today's smallest tiles, 178 wide); the shelf scrolls for the rest. The
   // built-in list keeps 8 too.
@@ -419,7 +433,7 @@
     var rows = Math.max(1, Math.ceil(others.length / 5)),
       r = Math.floor(st.grid / 5),
       first = Math.max(0, Math.min(rows - 3, r - 1));
-    $("apps").lastChild.style.webkitTransform = $("apps").lastChild.style.transform = "translateY(" + -first * 239 + "px)";
+    $("apps").lastElementChild.style.webkitTransform = $("apps").lastElementChild.style.transform = "translateY(" + -first * 239 + "px)";
     focusRows($("settings"), st.row, st.zone === Z.SETTINGS);
     focusRows($("shelfedit"), st.edit, st.zone === Z.EDIT);
     focusRows($("langpick"), st.lang, st.zone === Z.LANG);
@@ -427,6 +441,7 @@
     focusRows($("citypick"), st.city, st.zone === Z.CITY);
     focusRows($("keypick"), st.key, st.zone === Z.KEY);
     setClass(body, "drawer-open", st.zone === Z.DRAWER);
+    followSoon();
   }
 
   function focusRows(sheet, index, on) {
@@ -527,7 +542,7 @@
     }
     st.card = Math.min(st.card, Math.max(0, list.length - 1));
     if (!list.length && st.zone === Z.CARDS) st.zone = Z.SHELF;
-    backdrop(list.length ? Data.image(list[0].backdrop, "w300") : "");
+    backdrop(list.length ? Data.image(list[st.card].backdrop, "w300") : "");
     updateFocus();
   }
 
@@ -562,7 +577,7 @@
   var bgUrl = null,
     bgFront = "bgA";
 
-  /** The first pick's photo as the background: drawn tiny and stretched, it's already as soft as a heavy blur. */
+  /** The focused pick's photo as the background: drawn tiny and stretched, it's already as soft as a heavy blur. */
   function backdrop(url) {
     if (url === bgUrl) return;
     bgUrl = url;
@@ -585,11 +600,23 @@
     img.src = url;
   }
 
+  // As HomeView's bgFollow: the background follows the focused pick.
+  var BG_FOLLOW_MS = 500,
+    bgTimer = 0;
+
+  /** The focused pick's photo as the background once the focus has rested on it: a quick run along the row fades once. */
+  function followSoon() {
+    clearTimeout(bgTimer);
+    bgTimer = setTimeout(function () {
+      if (cards.length) backdrop(Data.image(cards[Math.min(st.card, cards.length - 1)].backdrop, "w300"));
+    }, BG_FOLLOW_MS);
+  }
+
   function renderClock() {
     var d = new Date(),
       c = $("clock");
-    c.firstChild.textContent = formatDate("format|h:mm", d.getTime());
-    c.lastChild.textContent = formatDate("format|EEEE, MMMM d", d.getTime());
+    c.firstElementChild.textContent = formatDate("format|h:mm", d.getTime());
+    c.lastElementChild.textContent = formatDate("format|EEEE, MMMM d", d.getTime());
   }
 
   /** On the minute, so the clock never runs late (the 30-second refresh could, by up to 30 s). */
@@ -820,8 +847,8 @@
 
   function renderApps() {
     var sheet = $("apps");
-    sheet.firstChild.textContent = tr("All Apps");
-    var grid = sheet.lastChild;
+    sheet.firstElementChild.textContent = tr("All Apps");
+    var grid = sheet.lastElementChild;
     grid.innerHTML = "";
     for (var i = 0; i < others.length; i++) {
       var r = Math.floor(i / 5),
@@ -893,11 +920,34 @@
         },
       },
       {
+        label: tr("Dim"),
+        value: dimName(),
+        step: function (d) {
+          cycle("dim", ["off", "low", "medium", "high", "auto"], Prefs.dim(), d);
+          applyDim();
+        },
+      },
+      {
+        label: tr("Screensaver"),
+        value: saverMode() === "clock" ? tr("Clock") : tr("Photos"),
+        step: function (d) {
+          cycle("saver", ["photos", "clock"], saverMode(), d);
+        },
+      },
+      {
         label: tr("Picks per tab"),
         value: String(Prefs.cards()),
         step: function (d) {
           Prefs.set("cards", 3 + ((Prefs.cards() - 3 + (d || 1) + 4) % 4));
           renderCards();
+        },
+      },
+      {
+        label: tr("Cartoons and anime"),
+        toggle: !Prefs.hideAnimation(),
+        step: function () {
+          Prefs.set("hideAnimation", !Prefs.hideAnimation());
+          Data.refresh();
         },
       },
       {
@@ -993,6 +1043,16 @@
         })(sv[j].key, sv[j].name);
       }
     }
+    if (nuvio()) {
+      var open = Prefs.openPicks();
+      rows.push({
+        label: tr("Open picks in"),
+        value: open === "nuvio" ? "Nuvio" : tr("Streaming apps"),
+        step: function (d) {
+          cycle("openPicks", ["apps", "nuvio"], open, d);
+        },
+      });
+    }
     rows.push({
       label: tr("Shelf"),
       value: "›",
@@ -1028,7 +1088,7 @@
   var rowsNow = [];
 
   function renderSettings() {
-    var box = $("settings").firstChild;
+    var box = $("settings").firstElementChild;
     box.innerHTML = "";
     var title = el("div", "title", box);
     sym("settings", title);
@@ -1081,7 +1141,7 @@
   }
 
   function renderLanguages() {
-    var box = $("langpick").firstChild,
+    var box = $("langpick").firstElementChild,
       choices = languageChoices(),
       current = choices.indexOf(pickedLanguage());
     box.innerHTML = "";
@@ -1174,7 +1234,7 @@
   }
 
   function renderCities() {
-    var box = $("citypick").firstChild,
+    var box = $("citypick").firstElementChild,
       old = fieldOf("citypick"),
       typed = old ? old.value : "",
       inField = typingIn("citypick");
@@ -1202,7 +1262,7 @@
     st.city = 0;
     cityFound = [];
     cityStatus = "";
-    $("citypick").firstChild.innerHTML = "";
+    $("citypick").firstElementChild.innerHTML = "";
     renderCities();
     setClass($("citypick"), "open", true);
     openField("citypick");
@@ -1242,9 +1302,7 @@
       }
       cityFound = found || [];
       if (cityFound.length) st.city = 2; // on the first place found
-      setCityStatus(
-        err ? trf("Couldn't search now: {error}", { error: err.message }) : cityFound.length ? "" : tr("No city with that name.")
-      );
+      setCityStatus(err ? trf("Couldn't search now: {error}", { error: err.message }) : cityFound.length ? "" : tr("No city with that name."));
     });
   }
 
@@ -1297,7 +1355,7 @@
   }
 
   function renderKey() {
-    var box = $("keypick").firstChild,
+    var box = $("keypick").firstElementChild,
       old = fieldOf("keypick"),
       typed = old ? old.value : "",
       inField = typingIn("keypick");
@@ -1332,7 +1390,7 @@
     st.key = 0;
     keyStatus = "";
     keyAsking = false;
-    $("keypick").firstChild.innerHTML = "";
+    $("keypick").firstElementChild.innerHTML = "";
     renderKey();
     setClass($("keypick"), "open", true);
     openField("keypick");
@@ -1429,7 +1487,7 @@
   // MARK: - About this TV: what to quote when reporting a problem, without LG's or Samsung's slow menus
 
   function renderAbout(info) {
-    var box = $("about").firstChild;
+    var box = $("about").firstElementChild;
     box.innerHTML = "";
     el("div", "title", box, tr("About this TV"));
     var list = el("div", "list", box),
@@ -1496,7 +1554,7 @@
   }
 
   function renderShelfEdit() {
-    var box = $("shelfedit").firstChild,
+    var box = $("shelfedit").firstElementChild,
       e = editList();
     box.innerHTML = "";
     var title = el("div", "title", box);
@@ -1551,9 +1609,26 @@
 
   // MARK: - Opening things
 
-  function launcher(id, name) {
+  /** Nuvio, when the TV has it: picks can open on its page there (Home Settings, Open picks in). LG only for now:
+   *  Samsung's launch passes no data, so Nuvio would open on its Home. */
+  function nuvio() {
+    if (TV.name !== "webos") return null;
+    for (var i = 0; i < apps.length; i++) if (/nuvio/i.test(apps[i].id) || /^nuvio\b/i.test(apps[i].title)) return apps[i];
+    return null;
+  }
+
+  function pickTarget(p) {
+    if (!p) return null;
+    var via = Prefs.openPicks() === "nuvio" ? nuvio() : null;
+    var app = via || Data.appFor(p.app);
+    if (!app) return null;
+    // Nuvio's own link for the title, as on Android (nuvio://tmdb/movie/603); webOS apps get links as contentTarget.
+    return { app: app, params: via ? { contentTarget: "nuvio://tmdb/" + (p.kind === "tv" ? "series" : "movie") + "/" + p.id } : null };
+  }
+
+  function launcher(id, name, params) {
     return function () {
-      TV.launch(id, null, function (ok) {
+      TV.launch(id, params || null, function (ok) {
         if (!ok) toast(trf("Couldn't open {app}.", { app: name || id }));
       });
     };
@@ -1585,9 +1660,8 @@
         } else openSettings();
         return;
       case Z.CARDS:
-        var p = cards[st.card],
-          app = p && Data.appFor(p.app);
-        if (app) launcher(app.id, app.title)();
+        var target = pickTarget(cards[st.card]);
+        if (target) launcher(target.app.id, target.app.title, target.params)();
         return;
       case Z.SHELF:
         if (shelf[st.shelf]) launcher(shelf[st.shelf].id, shelf[st.shelf].title)();
@@ -1625,7 +1699,14 @@
   function selectTab(i) {
     if (i === st.tab) return;
     st.tab = i;
+    // A tab opens at its first pick, its row at the start: at once, as on Android, not sliding from the last tab's place.
+    st.card = 0;
+    var holder = $("cards");
+    holder.style.webkitTransition = holder.style.transition = "none";
     renderCards();
+    layoutCards(); // renderCards returns early when this tab's picks are the same
+    void holder.offsetWidth; // the row is laid out where it lands before the slide comes back
+    holder.style.webkitTransition = holder.style.transition = "";
   }
 
   function move(dx, dy) {
@@ -1753,13 +1834,7 @@
       if (
         saverOn ||
         sheetOpen() !==
-          (zone === Z.APPS ||
-            zone === Z.SETTINGS ||
-            zone === Z.EDIT ||
-            zone === Z.LANG ||
-            zone === Z.CITY ||
-            zone === Z.KEY ||
-            zone === Z.ABOUT)
+          (zone === Z.APPS || zone === Z.SETTINGS || zone === Z.EDIT || zone === Z.LANG || zone === Z.CITY || zone === Z.KEY || zone === Z.ABOUT)
       )
         return;
       if (zone === Z.DRAWER && st.zone !== Z.DRAWER) return;
@@ -1822,6 +1897,40 @@
     saverPick = null,
     SAVER_AFTER = 5 * 60000;
 
+  /** "photos" (the picks' photos, as it always was) or "clock": what the screen shows when nobody touches it. */
+  function saverMode() {
+    return Prefs.saver();
+  }
+
+  /** Dim, as the person picked it: off, low, medium, high, or automatic (medium from 22:00 to 07:00). */
+  function dimName() {
+    var v = Prefs.dim();
+    return v === "low"
+      ? tr("dim|Low")
+      : v === "medium"
+        ? tr("dim|Medium")
+        : v === "high"
+          ? tr("dim|High")
+          : v === "auto"
+            ? tr("Automatic")
+            : tr("Off");
+  }
+
+  function dimLevel() {
+    var v = Prefs.dim();
+    if (v === "auto") {
+      var h = new Date().getHours();
+      return h >= 22 || h < 7 ? 2 : 0;
+    }
+    return v === "low" ? 1 : v === "medium" ? 2 : v === "high" ? 3 : 0;
+  }
+
+  /** The panel's brightness is a private API: this is a black layer over the picture instead. */
+  function applyDim() {
+    var level = dimLevel();
+    $("dim").className = "layer" + (level ? " d" + level : "");
+  }
+
   /** The screensaver's photos: picks with an app on the TV. */
   function saverPhotos() {
     return Data.showcase().filter(function (p) {
@@ -1854,8 +1963,8 @@
         clock.children[2].textContent = p.title;
         saverPick = p;
         // With Watch from the screensaver on, OK opens this title's app (any other key only closes).
-        var app = Prefs.saverWatch() && Data.appFor(p.app);
-        hint.textContent = app ? trf("Press OK to watch on {app} · any other button to close", { app: app.title }) : "";
+        var target = Prefs.saverWatch() ? pickTarget(p) : null;
+        hint.textContent = target ? trf("Press OK to watch on {app} · any other button to close", { app: target.app.title }) : "";
         setTimeout(function () {
           setClass(back, "on", true);
           setClass(front, "on", false);
@@ -1872,7 +1981,7 @@
 
   function tickSaverClock(clock) {
     var d = new Date();
-    clock.firstChild.textContent = formatDate("format|h:mm", d.getTime());
+    clock.firstElementChild.textContent = formatDate("format|h:mm", d.getTime());
     clock.children[1].textContent = formatDate("format|EEEE, MMMM d", d.getTime());
   }
 
@@ -1882,12 +1991,60 @@
     setClass($("saver"), "on", false);
   }
 
+  // MARK: - The clock screensaver: a clock, the date and the weather, drifting slowly for OLED panels
+
+  var ambientOn = false,
+    ambientTimer = 0;
+
+  function showAmbient() {
+    if (ambientOn) return;
+    var a = $("ambient");
+    a.innerHTML = "";
+    var shift = el("div", "shift", a);
+    el("div", "clock", shift);
+    el("div", "date", shift);
+    var side = el("div", "side", shift);
+    el("div", "temp", side);
+    el("div", "cond", side);
+    ambientOn = true;
+    setClass(a, "on", true);
+    ambientTimer = setInterval(tickAmbient, 30000);
+    tickAmbient();
+  }
+
+  function tickAmbient() {
+    if (!ambientOn) return;
+    var a = $("ambient"),
+      d = new Date(),
+      w = Prefs.weather() ? Data.weather : null;
+    a.querySelector(".clock").textContent = formatDate("format|h:mm", d.getTime());
+    a.querySelector(".date").textContent = formatDate("format|EEEE, MMMM d", d.getTime());
+    // The forecast as it is now (a new one comes every 30 minutes), and only with the weather card on, as on Android.
+    a.querySelector(".temp").textContent = w ? Data.degrees(w.temp) : "";
+    a.querySelector(".cond").textContent = w ? Data.condition(w.code, w.isDay) : "";
+    // A clock that never moves burns into an OLED: the drift of Android's clock without photos (40 × 26 px, 10 minutes).
+    var phase = (2 * Math.PI * ((d.getTime() / 1000) % 600)) / 600,
+      shift = a.querySelector(".shift");
+    shift.style.webkitTransform = shift.style.transform =
+      "translate(" + Math.round(40 * Math.sin(phase)) + "px," + Math.round(26 * Math.sin(2 * phase + 0.7)) + "px)";
+  }
+
+  function hideAmbient() {
+    ambientOn = false;
+    clearInterval(ambientTimer);
+    setClass($("ambient"), "on", false);
+  }
+
   function poke(ok) {
     idleAt = Date.now();
+    if (ambientOn) {
+      hideAmbient();
+      return true;
+    }
     if (!saverOn) return false;
-    var app = ok && saverPick && Prefs.saverWatch() && Data.appFor(saverPick.app);
+    var target = ok && Prefs.saverWatch() ? pickTarget(saverPick) : null;
     hideSaver();
-    if (app) launcher(app.id, app.title)();
+    if (target) launcher(target.app.id, target.app.title, target.params)();
     return true;
   }
 
@@ -1973,16 +2130,15 @@
     });
   }
 
-  /** Back to the home screen (the app was opened again): the shelf, everything closed, the first tab. */
+  /** Back to the home screen (the app was opened again): the shelf, everything closed, the first tab at its first pick. */
   function reset() {
     hideSaver();
+    hideAmbient();
     closeSheets();
     st.zone = Z.SHELF;
     st.shelf = 0;
-    if (st.tab !== 0) {
-      st.tab = 0;
-      renderCards();
-    }
+    st.card = 0;
+    selectTab(0);
     updateFocus();
     restInDrawer(); // drawer_first: out again at once, not only after the TV lists its apps
   }
@@ -2020,6 +2176,7 @@
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {
       hideSaver();
+      hideAmbient();
       return;
     }
     idleAt = Date.now();
@@ -2035,10 +2192,11 @@
   checkNight(); // now, from the last forecast: not after the TV lists its apps, with the day look until then
   // LG's screensaver waits only when ours will show: not under a sheet (ours waits there), and not without photos.
   TV.holdScreenSaver(function () {
-    return !sheetOpen() && saverPhotos().length > 0;
+    return !sheetOpen() && (saverMode() === "clock" || saverPhotos().length > 0);
   });
   fit();
   renderTop();
+  applyDim();
   tickClock();
   loadApps(function () {
     renderAll();
@@ -2048,10 +2206,26 @@
   setInterval(function () {
     checkNight();
     Data.refresh();
-    if (!saverOn && !sheetOpen() && Date.now() - idleAt > SAVER_AFTER) showSaver();
+    applyDim(); // automatic: medium from 22:00, off again at 07:00
+    if (!saverOn && !ambientOn && !sheetOpen() && Date.now() - idleAt > SAVER_AFTER) {
+      if (saverMode() === "clock") showAmbient();
+      else showSaver();
+    }
     if (saverOn) tickSaverClock($("saver").querySelector(".clock"));
+    if (ambientOn) tickAmbient();
   }, 30000);
 
   // For the browser preview and tests.
-  window.FreeMyTV = { state: st, move: move, activate: activate, back: back, showSaver: showSaver, hideSaver: hideSaver, toast: toast };
+  window.FreeMyTV = {
+    state: st,
+    move: move,
+    activate: activate,
+    back: back,
+    showSaver: showSaver,
+    hideSaver: hideSaver,
+    toast: toast,
+    showAmbient: showAmbient,
+    hideAmbient: hideAmbient,
+    applyDim: applyDim,
+  };
 })();
